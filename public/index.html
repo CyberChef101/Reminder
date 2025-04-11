@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Reminder App</title>
+  <style>
+    body { font-family: sans-serif; padding: 2rem; background: #f0f9ff; }
+    form { max-width: 400px; margin: auto; background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    input, textarea { width: 100%; margin-top: 0.5rem; padding: 0.5rem; border: 1px solid #ccc; border-radius: 5px; }
+    button { margin-top: 1rem; padding: 0.5rem 1rem; background: #007BFF; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    button:hover { background: #0056b3; }
+  </style>
+</head>
+<body>
+  <h2>Set a Reminder</h2>
+  <form id="reminderForm">
+    <label>Email: <input type="email" name="email" required /></label>
+    <label>Date: <input type="date" name="date" required /></label>
+    <label>Message: <textarea name="message" rows="4" required></textarea></label>
+    <button type="submit">Set Reminder</button>
+  </form>
+
+  <script>
+    const form = document.getElementById('reminderForm');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = {
+        email: form.email.value,
+        date: form.date.value,
+        message: form.message.value
+      };
+
+      const response = await fetch('/api/reminder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      const result = await response.json();
+      alert(result.message || result.error);
+    });
+  </script>
+</body>
+</html>
