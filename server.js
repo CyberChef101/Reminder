@@ -1,27 +1,57 @@
-require('dotenv').config();
 const express = require('express');
-const path = require('path');
 const mongoose = require('mongoose');
-const Reminder = require('./models/Reminder');
-require('./cron/emailScheduler');
+const nodemailer = require('nodemailer');
+const cron = require('node-cron');
+const bodyParser = require('body-parser');
+const path = require('path');
+require('dotenv').config();
 
 const app = express();
-app.use(express.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true });
+mongoose.connect(process.env.MONGO_URI);
 
-app.post('/api/reminder', async (req, res) => {
-  const { email, date, message } = req.body;
+const reminderSchema = new mongoose.Schema({
+    dateTime: Date,
+    message: String
+});
+const Reminder = mongoose.model('Reminder', reminderSchema);
 
-  try {
-    const reminder = new Reminder({ email, date: new Date(date), message });
-    await reminder.save();
-    res.status(200).json({ message: 'Reminder saved successfully!' });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to save reminder' });
-  }
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.post('/set-reminder', async (req, res) => {
+    const { reminderDate, reminderTime, reminderMessage } = req.body;
+    const dateTime = new Date(`${reminderDate}T${reminderTime}:00`);
+    const reminder = new Reminder({ dateTime, message: reminderMessage });
+    await reminder.save();
+    res.send('Reminder set successfully!');
+});
+
+cron.schedule('* * * * *', async () => {
+    const now = new Date();
+    const reminders = await Reminder.find();
+    reminders.forEach(reminder => {
+        const reminderTime = new Date(reminder.dateTime);
+        if (reminderTime <= now) {
+            const mailOptions = {
+                from: process.env.EMAIL_USER,
+                to: 'your_email@gmail.com',
+                subject: 'Reminder',
+                text: reminder.message
+            };
+            transporter.sendMail(mailOptions);
+            Reminder.deleteOne({ _id: reminder._id }).then(() => {
+                console.log('Reminder sent and removed');
+            });
+        }
+    });
+});
+
+app.listen(3000, () => console.log('Server running on port 3000'));
